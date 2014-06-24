@@ -1,0 +1,52 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{6346566b-219c-47c8-b677-b7c08a8ce757}</ProjectGuid>
+    <ProjectHome>.</ProjectHome>
+    <StartupFile>AutoDiff.py</StartupFile>
+    <SearchPath>
+    </SearchPath>
+    <WorkingDirectory>.</WorkingDirectory>
+    <OutputPath>.</OutputPath>
+    <Name>AutoDiff</Name>
+    <RootNamespace>AutoDiff</RootNamespace>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="AutoDiff.py" />
+    <Compile Include="Database\BinDiffSQL.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Database\__init__.py" />
+    <Compile Include="config.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="logger.py" />
+    <Compile Include="Modules\Rematcher\Rematcher.py" />
+    <Compile Include="Modules\Rematcher\__init__.py" />
+    <Compile Include="Modules\Sanitizer\__init__.py" />
+    <Compile Include="Modules\SignificantFunctions\SignificantFunctions.py" />
+    <Compile Include="Modules\SignificantFunctions\__init__.py" />
+    <Compile Include="Modules\__init__.py" />
+    <Compile Include="Modules\Sanitizer\Sanitizer.py" />
+    <Compile Include="runner.py" />
+    <Compile Include="test.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Database\" />
+    <Folder Include="Modules\" />
+    <Folder Include="Modules\Rematcher\" />
+    <Folder Include="Modules\Sanitizer\" />
+    <Folder Include="Modules\SignificantFunctions\" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
+</Project>
