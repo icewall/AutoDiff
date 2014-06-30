@@ -4,6 +4,7 @@ from idaapi import *
 import sqlite3
 import hashlib
 import traceback
+from logger import *
 
 class Rematcher(object):
     
@@ -28,7 +29,7 @@ class Rematcher(object):
         pass
     
     def initialize(self,binDiffSQL,idbFlag):
-        print "[ReMatcher] init"
+        Logger.log("[ReMatcher] init")
         self._dbHandler = binDiffSQL.getDbHandler()
         self._binDiffSQL = binDiffSQL
         self._idbFlag = idbFlag
@@ -45,7 +46,7 @@ class Rematcher(object):
         pass
 
     def preRate(self,functions):
-        print "[ReMatcher] start preRate"        
+        Logger.log("[ReMatcher] start preRate")
         matchedfunc = ''
         alreadyMatched = []
         #get entries for primary idb
@@ -55,7 +56,7 @@ class Rematcher(object):
                 match = self._dbHandler.execute("SELECT * from rematcher_info WHERE file_id = 2 AND hash = ?",(primary["hash"],)).fetchall()          
                 if match != None and match != []:
                     if len(match) > 1:
-                        print "Huh, more than one candidate to re-match"
+                        Logger.log("Huh, more than one candidate to re-match")
                     match = match[0]
                     #remove already matched func
                     if match["address"] in alreadyMatched:
@@ -67,7 +68,7 @@ class Rematcher(object):
                     functions.remove(func)
                     #update db | !!!!! MAKE IT BETTER ??? !!!!!
                     #self._dbHandler.execute("UPDATE function SET address2 =?,similarity=2.0 WHERE address1=?",(match["address"],primary["address"]))
-                    #print "There is new pair func1 : 0x%x   func2 : 0x%x  -> old : 0x%x" % (int(primary["address"]),int(match["address"]),int(func["address2"]))
+                    Logger.log("There is new pair func1 : 0x%x   func2 : 0x%x  -> old : 0x%x" % (int(primary["address"]),int(match["address"]),int(func["address2"])))
                     #save this info to DB
                     self._dbHandler.execute("INSERT INTO rematcher_summary VALUES(null,?,?,?)",(primary["address"],match["address"],func["address2"]) )
                     #add to already matched/used list
@@ -77,13 +78,13 @@ class Rematcher(object):
                     pass # do nothing ?
 
             except sqlite3.Error as e:
-                print "[BinDiffSQL] ", e.args[0]
+                Logger.log("[BinDiffSQL] " + e.args[0])
                 traceback.print_exc()
 
             self._dbHandler.commit()
     
     def collectInformations(self):
-        print "ReMatcher : starts collecting info"
+        Logger.log("ReMatcher : starts collecting info")
         functions = self._binDiffSQL.getFunctions()      
            
         for func in functions:

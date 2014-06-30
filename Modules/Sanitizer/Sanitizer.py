@@ -2,6 +2,7 @@ from idc import *
 from idaapi import *
 from idautils import *
 import sqlite3
+from logger import *
 
 class Sanitizer(object):
 
@@ -41,7 +42,7 @@ class Sanitizer(object):
  
     def initialize(self,binDiffSQL,idbFlag):
 
-        print "[Sanitizer] init"
+        Logger.log("[Sanitizer] init")
         self._dbHandler = binDiffSQL.getDbHandler()
         self._idbFlag = idbFlag
         self._binDiffSQL = binDiffSQL
@@ -64,15 +65,13 @@ class Sanitizer(object):
         self._idbFlag = idbFlag
 
     def collectInformations(self):
-        print "Sanitizer : starts collecting info"
+        Logger.log("Sanitizer : starts collecting info")
 
         cur = self._dbHandler.cursor()
-       
-        for func in Functions():            
-            self._countInstr(func,cur)
-
         functions = self._binDiffSQL.getFunctions()         
-        for func in functions:       
+
+        for func in functions:                    
+            self._countInstr(func,cur)        
             self._findDiffInstructions(func,cur)
                                                         
         self._dbHandler.commit()
@@ -80,8 +79,12 @@ class Sanitizer(object):
         
     def _countInstr(self,func,cur):
 
-            f = FlowChart(get_func(func))
-            funcRange = get_func(func)
+            ea = func["address1"] if self._idbFlag == 1 else func["address2"]
+            funcRange = get_func(ea)
+            if not hasattr(funcRange,"startEA"):
+                Logger.log("Could not get function at address : 0x%x" % ea)
+                return
+            f = FlowChart(funcRange)            
             self._blocks = set()
             instr_count  = 0
 
@@ -100,7 +103,7 @@ class Sanitizer(object):
                 for pred_block in block.preds():
                     instr_count += self._countInstrInternal(block.startEA,block.endEA,block.id)
               
-            #print "Function 0x%x : has %d instructions" % (funcRange.startEA,instr_count)
+            Logger.log("Function 0x%x : has %d instructions" % (funcRange.startEA,instr_count))
             #update database
             if self._idbFlag == 1:                
                 cur.execute("INSERT INTO instr_count values(null,%d,%d,0)" % (row["id"],instr_count))
@@ -131,7 +134,8 @@ class Sanitizer(object):
                                         from instruction as i
                                         join basicblock as b on i.basicblockid = b.id
                                         join function as f on f.id = b.functionid
-                                        """ % self._idbFlag).fetchall()
+                                        WHERE f.address%d = %s 
+                                        """ % (self._idbFlag,self._idbFlag,ea)).fetchall()
         except:
             return
 
@@ -142,11 +146,12 @@ class Sanitizer(object):
                 continue
 
             #instr without match...add it to db
-            #print "Adding diff instr at: 0x%x : %s" % (head,GetDisasm(head))
+            disasm = GetDisasm(head)
+            Logger.log("Adding diff instr at: 0x%x : %s" % (head,disasm) )
             if self._idbFlag == 1:                
-                cur.execute("INSERT INTO diff_instr values(null,?,?,null,?,?)" , (row["id"],head,GetDisasm(head),GetMnem(head)) )
+                cur.execute("INSERT INTO diff_instr values(null,?,?,null,?,?)" , (row["id"],head,disasm,GetMnem(head)) )
             else:
-                cur.execute("INSERT INTO diff_instr values(null,?,null,?,?,?)" , (row["id"],head,GetDisasm(head),GetMnem(head)) )
+                cur.execute("INSERT INTO diff_instr values(null,?,null,?,?,?)" , (row["id"],head,disasm,GetMnem(head)) )
     
     def rate(self,functions):             
         cur = self._dbHandler.cursor()
@@ -173,15 +178,15 @@ class Sanitizer(object):
         a = (s_added_instr.issubset(Sanitizer.meaningLessInstr)  and len(s_added_instr) > 0 )
         b = (s_removed_instr.issubset(Sanitizer.meaningLessInstr) and len(s_removed_instr) > 0)
         c = (s_added_instr == s_removed_instr)
-        if a: print "Added instructions set includes in removed instr set"
-        if b: print "Removed instructions set includes in added instr set"
+        if a: Logger.log("Added instructions set includes in removed instr set")
+        if b: Logger.log("Removed instructions set includes in added instr set")
         if c: 
-            print "Sets of mnemonics are equal"
-            print "Number of mnemonics"
-            print "Added : %d Removed : %d" % (len(s_added_instr),len(s_removed_instr))
+            Logger.log("Sets of mnemonics are equal")
+            Logger.log("Number of mnemonics")
+            Logger.log("Added : %d Removed : %d" % (len(s_added_instr),len(s_removed_instr)))
         
         if  a or b or c:
-            print "Meaningless instruction change detected: function id %d : address : 0x%x" % (function["id"],function["address1"])            
+            Logger.log("Meaningless instruction change detected: function id %d : address : 0x%x" % (function["id"],function["address1"]))
             #print "Instruction added: \n","\n".join(map(lambda instr: instr["asm"],added_instr))
             #print "Instruction removed: \n","\n".join(map(lambda instr: instr["asm"],removed_instr))
             row = cur.execute("SELECT * FROM sanitizer_summary WHERE func_id = ?",( function["id"],)).fetchone()

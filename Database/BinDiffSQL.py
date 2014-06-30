@@ -1,5 +1,6 @@
 import sqlite3
 import os
+from logger import *
 
 class BinDiffSQL(object):       
     _dbPath = None
@@ -9,7 +10,7 @@ class BinDiffSQL(object):
         self._dbPath = diffPath
         #open database
         #TODO maybe there is easier way ?
-        print "Diff path : %s" % diffPath
+        Logger.log("Diff path : %s" % diffPath)
         if not os.path.isfile(diffPath):
             raise IOError('BinDiff db could not be found')
 
@@ -33,7 +34,7 @@ class BinDiffSQL(object):
             try:
                 self._dbHandler.execute(table)
             except sqlite3.Error as e:
-                print "An error occurred:", e.args[0]
+                Logger.log("An error occurred: "+ e.args[0])
         self._dbHandler.commit()
     
     def dropTables(self,tables):
@@ -41,5 +42,5 @@ class BinDiffSQL(object):
             try:
                 self._dbHandler.execute("DROP TABLE %s" % table)
             except sqlite3.Error as e:
-                print "An error occurred:", e.args[0]
+                Logger.log("An error occurred:" + e.args[0])
         self._dbHandler.commit() 

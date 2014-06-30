@@ -3,6 +3,7 @@ from idautils import *
 from idaapi import *
 import sqlite3
 import config
+from logger import *
 
 class SignificantFunctions(object):
     #necessary table creation
@@ -36,7 +37,7 @@ class SignificantFunctions(object):
 
     def initialize(self,binDiffSQL,idbFlag):
 
-        print "[SignificantFunctions] init"
+        Logger.log("[SignificantFunctions] init")
         self._dbHandler = binDiffSQL.getDbHandler()
         self._binDiffSQL = binDiffSQL
         self._idbFlag = idbFlag
@@ -68,7 +69,7 @@ class SignificantFunctions(object):
         pass
 
     def collectInformations(self):
-        print "SignificantFunctions : starts collecting info"
+        Logger.log("SignificantFunctions : starts collecting info")
         self._safeFunctionsUsage(self._binDiffSQL.getFunctions())
 
     def _safeFunctionsUsage(self,functions):
@@ -81,7 +82,7 @@ class SignificantFunctions(object):
             for call in calls.values():
                 if call in self.safeFunctions:
                     counter += 1
-                    print "Adding hit for %s with signature %s" % (hex(ea),call)
+                    Logger.log("Adding hit for %s with signature %s" % (hex(ea),call))
                     cur.execute("INSERT INTO sf_debug values(null,?,?,?)",(function["id"],self._idbFlag,call))
             
             if not counter: 

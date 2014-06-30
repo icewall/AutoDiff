@@ -38,8 +38,6 @@
     <Compile Include="Modules\SignificantFunctions\__init__.py" />
     <Compile Include="Modules\__init__.py" />
     <Compile Include="Modules\Sanitizer\Sanitizer.py" />
-    <Compile Include="runner.py" />
-    <Compile Include="test.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Database\" />

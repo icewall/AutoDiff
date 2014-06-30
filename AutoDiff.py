@@ -5,14 +5,15 @@ try:
 except ImportError:
     print "Problem with module importing"
 
-### TEST ###
-#log = file('log.txt','w')
-#if 'ARGV' in locals() or 'ARGV' in globals():
-#    log.write(repr(ARGV))
-
-#log.write("\n")
 from logger import *
-Logger.init()
+Logger.init(Logger.FILE)
+Logger.log("start logging...")
+
+try:
+    import ptvsd
+    ptvsd.enable_attach(None)
+except Exception as e:
+    Logger.log(e.message)
 
 import Database.BinDiffSQL as db
 idaapi.require("Database.BinDiffSQL")
@@ -37,14 +38,6 @@ idaapi.require("Modules.SignificantFunctions.SignificantFunctions")
 idaapi.require("Modules.Sanitizer.Sanitizer")
 idaapi.require("Modules.Rematcher.Rematcher")
 
-#idaapi.require("Modules.SignificantFunctions.SignificantFunctions")
-#sf = Modules.SignificantFunctions.SignificantFunctions
-
-#idaapi.require("Modules.Sanitizer.Sanitizer")
-#sanitizer = Modules.Sanitizer.Sanitizer
-
-#idaapi.require("Modules.Rematcher.Rematcher")
-#rematcher = Modules.Rematcher.Rematcher
 
 class AutoDiffSummaryForm(Choose2):
     def __init__(self,title):
@@ -80,6 +73,7 @@ class AutoDiff(object):
         self._modules = None
         self._instances = None
         self._idbFlag = None
+        self._secondIDB = None
 
     def __init__(self,args):
         self._setFields()
@@ -87,9 +81,11 @@ class AutoDiff(object):
         self._optMethods = {
                             "-f"       : self._setFileID,
                             "-b"       : self._setBinDiffDB,
-                            "-c"       : self._collectInformations,
+                            "-d"       : self._setSecondIDB,
                             "-a"       : self._batchMode,
-                            "-r"       : self._rate
+                            "-c"       : self._collectInformations,
+                            "-r"       : self._rate,
+                            "-s"       : self._getSummary
                             }
         #Create BinDiff database object handler
         
@@ -107,26 +103,24 @@ class AutoDiff(object):
         self._parseArgs(args)
 
     def _parseArgs(self,args):
-        Logger.log("[AutoDiff] parsing args\n")
-        batchFlag = False        
-        if len(args) == 1:
-            return
-        #means it's batch mode and Exit should be called at the end                                
-        optlist,args = getopt.getopt(args,"h:f:b:crsa",)        
-        Logger.log(repr(optlist))
         try:
+            Logger.log("[AutoDiff] parsing args")
+            batchFlag = False        
+            if len(args) == 1:
+                return        
+            #means it's batch mode and Exit should be called at the end   
+            #ptvsd.wait_for_attach()                           
+            optlist,args = getopt.getopt(args,"h:f:b:d:crsa")        
+            Logger.log(repr(optlist))        
             for o,p in optlist:
-                Logger.log(repr(o))
-                Logger.log(repr(p))
                 self._optMethods[o](p)
                 batchFlag = True
         except Exception as e:
-            Logger.log(e.message + "\n")
-            print traceback.print_exc()
+            Logger.log(e.message)
+            Logger.log(traceback.print_exc())
 
         if batchFlag:
-            #Exit(0)
-            Logger.log("batch mode on\n")
+            Exit(0)
             pass
 
     #####
@@ -137,11 +131,18 @@ class AutoDiff(object):
         self._idbFlag = int(fileID)
 
     def _setBinDiffDB(self,diffPath):
-        Logger.log("\n_setBinDiffDB\n")
+        Logger.log("_setBinDiffDB")
         self._diffPath = diffPath
+    
+    def _setSecondIDB(self,secondIDB):
+        self._secondIDB = secondIDB
                                
     def _batchMode(self,nop):
-        pass
+        #3 steps
+        self._collectInformations()
+        self._rate()
+        self._getSummary()
+
 
     #####
     ##  END of Options methods
@@ -155,26 +156,26 @@ class AutoDiff(object):
         if self._idbFlag == None:
             self._idbFlag = idaapi.asklong(1,"Which IDB u handle right now ?(1 = primary,2 = secondary)")        
         for module in self._instances:
-            print "calling init method"
+            Logger.log("calling init method")
             module.initialize(self._binDiffSQL,self._idbFlag)
 
     def _collectInformations(self, nop = 0):
         self.init()        
         for module in self._instances:
             module.collectInformations()
-        print "[+]AutoDiff - Informations collected"
+        Logger.log("[+]AutoDiff - Informations collected")
         if self._idbFlag == 2:
-            print "Exiting because it's second IDB"
+            Logger.log("Exiting because it's second IDB")
             return
                 
-        print "[+]AutoDiff - Time for second IDB"
+        Logger.log("[+]AutoDiff - Time for second IDB")
         
         if config.DEBUG:
-            IDB = config.SECOND_IDB
-        else:
-            IDB = idaapi.askfile_c(0,"*.idb","Point Second IDB file")        
-        subprocess.call('%s -A -S"%s %s" %s' % (config.IDA,config.AUTODIFF,('-f 2 -b \\"%s\\" -c') % self._diffPath,IDB) ,shell=True)
-        print "[+]AutoDiff - data collected"
+            self._secondIDB = config.SECOND_IDB
+        elif self._secondIDB == None:
+            self._secondIDB = idaapi.askfile_c(0,"*.idb","Point Second IDB file")        
+        subprocess.call('%s -A -S"%s %s" %s' % (config.IDA,config.AUTODIFF,('-f 2 -b \\"%s\\" -c') % self._diffPath,self._secondIDB) ,shell=True)
+        Logger.log("[+]AutoDiff - data collected")
     
     def _summarize(self):
         #show summary
@@ -183,7 +184,7 @@ class AutoDiff(object):
         self._summaryForm.Show()
         return
         
-    def _rate(self):
+    def _rate(self,nop = 0):
         self._initDB()
         functions = self._binDiffSQL.getFunctions()
         #pre-rate for modules which modify bindiffDB,,,e.g
@@ -192,7 +193,7 @@ class AutoDiff(object):
 
         for module in self._instances:
             module.rate(functions)
-        print "[+]AutoDiff - Functions have been rated"
+        Logger.log("[+]AutoDiff - Functions have been rated")
 
     def registerMenus(self):
            idaapi.add_menu_item("Edit/Plugins/", "-", None, 0, self._emptyMenu, ())
@@ -210,7 +211,7 @@ class AutoDiff(object):
                 self._diffPath = idaapi.askfile_c(0,"*.BinDiff","Point BinDiff database file")
             self._binDiffSQL = db.BinDiffSQL(self._diffPath)
     
-    def _getSummary(self):
+    def _getSummary(self,nop = 0):
         sqlQuery = """
                     SELECT f.similarity,f.address1,f.address2,coalesce(i.primary_count,0),coalesce(i.secondary_count,0),coalesce(sa.meaningless_instr,0),coalesce(sf.sf_patch,0)
                     FROM function as f
@@ -251,14 +252,18 @@ class AutoDiff(object):
         safeIntCount = int(row[0])
         row  = cur.execute(sqlReMatched).fetchone()
         reMatchedCount = int(row[0])
-        print "======================================================="
-        print "=                AutoDiff / Statistics                ="
-        print "======================================================="
-        print "Number of changed functions declared by BinDiff : %d" % functionsCount
-        print "Number of functions filtered out by Sanitizer   : %d" % sanitizedFunctionsCount
-        print "Number of functions contain \"IntSafe patch\"   : %d" % safeIntCount
-        print "Number of functions ReMatched                   : %d" % reMatchedCount
-        print "Number of functions still left to analysis      : %d" % (functionsCount - (sanitizedFunctionsCount + safeIntCount + reMatchedCount))
+        #if it's batch mode log this info to separate file
+        if self._batchMode:
+            Logger.setLogFile("summary.txt")
+
+        Logger.log("=======================================================")
+        Logger.log("=                AutoDiff / Statistics                =")
+        Logger.log("=======================================================")
+        Logger.log("Number of changed functions declared by BinDiff : %d" % functionsCount)
+        Logger.log("Number of functions filtered out by Sanitizer   : %d" % sanitizedFunctionsCount)
+        Logger.log("Number of functions contain \"IntSafe patch\"   : %d" % safeIntCount)
+        Logger.log("Number of functions ReMatched                   : %d" % reMatchedCount)
+        Logger.log("Number of functions still left to analysis      : %d" % (functionsCount - (sanitizedFunctionsCount + safeIntCount + reMatchedCount)) )
 
     def _generateDatabase(self):
         self._initDB()
@@ -274,8 +279,8 @@ class AutoDiff(object):
         db.execute("DELETE FROM function WHERE similarity >= 1.0 OR id IN (SELECT func_id FROM sanitizer_summary)")
         db.commit()
         db.close()
-        print "AutoDiff'ed BinDiff database is ready to load!!!"
-        print "FILE : %s" % autoDiffDBPath
+        Logger.log("AutoDiff'ed BinDiff database is ready to load!!!")
+        Logger.log("FILE : %s" % autoDiffDBPath)
 
     def _correctFormat(self,data):
         for i in range(0,len(data)):
@@ -290,6 +295,9 @@ class AutoDiff(object):
 
         return data
 
+    """
+    TEST TEST TEST
+    """
     def _getFuncNames(self):
 
         tblFuncNames = """
@@ -320,6 +328,6 @@ class AutoDiff(object):
 
 if __name__ == "__main__":
     print "Welcome in AutoDiff!!!"
-    Logger.log("MAIN\n")
+    Logger.log("MAIN")
     autoDiff = AutoDiff(ARGV[1:])
     autoDiff.registerMenus()
