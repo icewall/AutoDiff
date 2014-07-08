@@ -2,7 +2,5 @@
 	currently when u analysis x64 file wrong version of IDA will be launched for analysis of second file 
 	if u did not change IDA path variable in config file.
 
-- Full batch mode
-	Just couple lines need to be added , e.g for loggin results to file.
 
 

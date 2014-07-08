@@ -66,6 +66,9 @@ class Rematcher(object):
                     #remove found function from functions list and update db
                     func = func[0]
                     functions.remove(func)
+                    #if newly found function is the same as old one, there is no reMatch ofc
+                    if match["address"] == func["address2"]:
+                        continue
                     #update db | !!!!! MAKE IT BETTER ??? !!!!!
                     #self._dbHandler.execute("UPDATE function SET address2 =?,similarity=2.0 WHERE address1=?",(match["address"],primary["address"]))
                     Logger.log("There is new pair func1 : 0x%x   func2 : 0x%x  -> old : 0x%x" % (int(primary["address"]),int(match["address"]),int(func["address2"])))

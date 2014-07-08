@@ -23,6 +23,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="AutoDiff.py" />
+    <Compile Include="BinDiffFilter.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Database\BinDiffSQL.py">
       <SubType>Code</SubType>
     </Compile>

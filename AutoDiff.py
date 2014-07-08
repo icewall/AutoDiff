@@ -26,6 +26,7 @@ import subprocess
 import getopt
 import config
 import traceback
+from BinDiffFilter import *
 
 
 """
@@ -64,7 +65,7 @@ class AutoDiffSummaryForm(Choose2):
         return n
 
 
-class AutoDiff(object):
+class CAutoDiff(object):
 
     def _setFields(self):
         self._binDiffSQL = None
@@ -74,6 +75,7 @@ class AutoDiff(object):
         self._instances = None
         self._idbFlag = None
         self._secondIDB = None
+        self.BinDiffFilter = CBinDiffFilter()
 
     def __init__(self,args):
         self._setFields()
@@ -197,6 +199,7 @@ class AutoDiff(object):
 
     def registerMenus(self):
            idaapi.add_menu_item("Edit/Plugins/", "-", None, 0, self._emptyMenu, ())
+           idaapi.add_menu_item("Edit/Plugins/", "AutoDiff: Summarize 2.0", "", 0, self._filterBinDiffWindow, ())           
            idaapi.add_menu_item("Edit/Plugins/", "AutoDiff: Generate AutoDiff'ed BinDiff database", "", 0, self._generateDatabase, ())           
            idaapi.add_menu_item("Edit/Plugins/", "AutoDiff: Summarize", "", 0, self._summarize, ())           
            idaapi.add_menu_item("Edit/Plugins/", "AutoDiff: Rate informations", "", 0, self._rate, ())
@@ -281,6 +284,49 @@ class AutoDiff(object):
         db.close()
         Logger.log("AutoDiff'ed BinDiff database is ready to load!!!")
         Logger.log("FILE : %s" % autoDiffDBPath)
+    
+    def _filterBinDiffWindow(self):
+        self._initDB()
+        if not self.BinDiffFilter.findBinDiffWindow():
+            return
+        sqlInfSafeFunctions = """
+                              SELECT address1 FROM function AS f 
+                              JOIN sf_summary AS sf ON f.id = sf.func_id
+                              """
+        sqlReMatched        = """
+                               SELECT address1 FROM rematcher_summary
+                              """
+        sqlSanitized        = """
+                              SELECT address1 FROM function AS f 
+                              JOIN sanitizer_summary AS s ON f.id = s.func_id                                
+                              """
+                
+        handler = self._binDiffSQL.getDbHandler()
+        #let's filter out some things
+        self.BinDiffFilter.hideSomeStandardColumns()
+        self.BinDiffFilter.proxy_model.hideMatchedFunctions()
+
+        #easy to notice....rollup this code!!!
+        #IntSafe marker
+        IntSafeFunctions = handler.execute(sqlInfSafeFunctions).fetchall()
+        for row in IntSafeFunctions:
+            self.BinDiffFilter.addIntSafeFunction("%X" % row["address1"])
+
+        #hide rematched functions cos they should have 1.0 similarity
+        reMatched = handler.execute(sqlReMatched).fetchall()
+        for row in reMatched:
+            self.BinDiffFilter.proxy_model.hideFunction("%X" % row["address1"],False)
+        
+        sanitized = handler.execute(sqlSanitized).fetchall()
+        for row in sanitized:
+            self.BinDiffFilter.proxy_model.hideFunction("%X" % row["address1"],False)
+
+        self.BinDiffFilter.proxy_model.invalidate() #for optymization purpose        
+                
+
+    """
+        Helpers
+    """
 
     def _correctFormat(self,data):
         for i in range(0,len(data)):
@@ -293,41 +339,11 @@ class AutoDiff(object):
             row[2] = str( hex( int(row[2]) ) )
             data[i] = row
 
-        return data
-
-    """
-    TEST TEST TEST
-    """
-    def _getFuncNames(self):
-
-        tblFuncNames = """
-                        CREATE TABLE func_name(
-                        id integer primary key,
-                        func_id integer,
-                        primary text,
-                        secondary text)
-                        """
-        self._initDB()
-        handler = self._binDiffSQL.getDbHandler()
-        try:
-            handler.execute(tblFuncNames)
-            handler.commit()
-            print "TABLE [func_name] CREATED"
-        except sqlite3.Error as e:
-            print "An error occurred:", e.args[0]
-
-        functions = self._binDiffSQL.getFunctions()
-        for func in functions:
-            name = self._instances[1]._getFunctionName(func["address1"])
-            if name != "":
-                print name
-                handler.execute("INSERT INTO func_name values(null,?,?,null)",(func["id"],name))
-
-        handler.commit()                
+        return data             
             
 
 if __name__ == "__main__":
     print "Welcome in AutoDiff!!!"
     Logger.log("MAIN")
-    autoDiff = AutoDiff(ARGV[1:])
-    autoDiff.registerMenus()
+    AutoDiff = CAutoDiff(ARGV[1:])
+    AutoDiff.registerMenus()
