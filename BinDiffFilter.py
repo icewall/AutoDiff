@@ -30,6 +30,7 @@ class MatchedFunctions(AbstractFilter):
 class CustomSortFilterProxyModel(QtGui.QSortFilterProxyModel):
     def __init__(self, parent=None):
         super(CustomSortFilterProxyModel, self).__init__(parent)
+        self.__lambdasToPickle = {}
         self.__filterFunctions = {} 
         self.__hiddenFunctions = set()
         self.__filtersCounter = 0
@@ -48,11 +49,18 @@ class CustomSortFilterProxyModel(QtGui.QSortFilterProxyModel):
         """
              ex:
             model.addFilterFunction(
-                'test_columns_1_and_2',
-                lambda r,s: (s in r[1] and s in r[2]))
+                lambda row: int(row["primary instructions"] > 3),
+                "more_than_3"
+                )
         """
         if name == "":
             name = str(self.__filtersCounter)
+        #detect whether it's lambda function cos we need to handle it in different way
+        #lambda functions should be passed as strings cos in that way they can be pickled
+        if isinstance(func,str):
+            self.__lambdasToPickle[name] = func
+            func = eval(func)
+                     
         self.__filterFunctions[name] = func
         self.invalidateFilter()
         self.__filtersCounter += 1
@@ -65,7 +73,10 @@ class CustomSortFilterProxyModel(QtGui.QSortFilterProxyModel):
         """
         if name in self.__filterFunctions.keys():
             del self.__filterFunctions[name]
+            if name in self.__lambdasToPickle.keys():
+                del self.__lambdasToPickle[name]
             self.invalidateFilter()
+            
 
     def __filterExists(self,name):
         return name in self.__filterFunctions.keys()
@@ -105,7 +116,7 @@ class CustomSortFilterProxyModel(QtGui.QSortFilterProxyModel):
         try:
             ea_primary = row["EA primary"]
         except:
-            return False
+            return True
         return ea_primary not in self.__hiddenFunctions
     
     def __filterHideMatchedFunctions(self,row):
@@ -173,7 +184,12 @@ class CustomSortFilterProxyModel(QtGui.QSortFilterProxyModel):
 
     def addInfSafeRowIndex(self,index):
         self.__colorRow["intSafeFunctions"]["indexes"].add(index)
+    
+    def getLambdaFilters(self):
+        return self.__lambdasToPickle
 
+    def getColoredRows(self):
+        return self.__colorRow
 
 class CBinDiffFilter(object):
     def __init__(self):
@@ -256,10 +272,30 @@ class CBinDiffFilter(object):
             print "Message action clicked"
 
     def saveFilters(self,filePath):
-        filtersObjects = [
-                          self.proxy_model.getFilterFunctions(),
-                          self.proxy_model.getHiddenFunctions()
-                         ]
+        """
+        TODO: maybe refactor this code to do it more general and automatic ????
+        """
+        #hiddenFunctions
+        filterFunctions = self.proxy_model.getFilterFunctions()
+        hiddenFunctionsStatus = filterFunctions.has_key("hiddenFunctions")
+        hiddenFunctions = self.proxy_model.getHiddenFunctions()
+        #lambdas
+        lambdaFilters = self.proxy_model.getLambdaFilters()
+
+        filterObjects = {}               
+        if hiddenFunctionsStatus:
+            filterObjects["hiddenFunctions"] = {}
+            filterObjects["hiddenFunctions"]["functions"] = hiddenFunctions            
+        
+        if len(lambdaFilters):
+            filterObjects["lambdaFilters"] = {}
+            filterObjects["lambdaFilters"] = lambdaFilters
+        
+        if filterFunctions.has_key("matched"):
+            filterObjects["matched"] = {} #just to have that info 
+        
+        filterObjects["coloredRows"] = self.proxy_model.getColoredRows()
+
         pickle.dump(filtersObjects,open(filePath,'wb'))
     
     def loadFilters(self,filePath):
