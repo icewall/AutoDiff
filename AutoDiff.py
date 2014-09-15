@@ -75,6 +75,7 @@ class CAutoDiff(object):
         self._instances = None
         self._idbFlag = None
         self._secondIDB = None
+        self.__IDA_PATH = ""
         self.BinDiffFilter = CBinDiffFilter()
 
     def __init__(self,args):
@@ -138,6 +139,7 @@ class CAutoDiff(object):
     
     def _setSecondIDB(self,secondIDB):
         self._secondIDB = secondIDB
+        self._setArch(secondIDB)        
                                
     def _batchMode(self,nop):
         #3 steps
@@ -176,7 +178,7 @@ class CAutoDiff(object):
             self._secondIDB = config.SECOND_IDB
         elif self._secondIDB == None:
             self._secondIDB = idaapi.askfile_c(0,"*.idb","Point Second IDB file")        
-        subprocess.call('%s -A -S"%s %s" %s' % (config.IDA,config.AUTODIFF,('-f 2 -b \\"%s\\" -c') % self._diffPath,self._secondIDB) ,shell=True)
+        subprocess.call('%s -A -S"%s %s" %s' % (self.__IDA_PATH,config.AUTODIFF,('-f 2 -b \\"%s\\" -c') % self._diffPath,self._secondIDB) ,shell=True)
         Logger.log("[+]AutoDiff - data collected")
     
     def _summarize(self):
@@ -339,7 +341,15 @@ class CAutoDiff(object):
             row[2] = str( hex( int(row[2]) ) )
             data[i] = row
 
-        return data             
+        return data           
+    
+    def _setArch(self,idbPath):
+        path,ext = os.path.splitext(idbPath)
+        if ext == ".i64": #PE+ (x64)
+            self.__IDA_PATH = config.IDA.replace("idaq.exe","idaq64.exe")
+        else:
+            #PE (x86)
+            self.__IDA_PATH = config.IDA
             
 
 if __name__ == "__main__":

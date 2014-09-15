@@ -1,5 +1,5 @@
 TMP_SIGS = r"t:\projects\Cisco\Code\AutoDiff\AutoDiff\AutoDiff\Modules\SignificantFunctions\functions.txt"
-IDA = r"d:\tools\RE\ida65\ida65\idaq.exe"
+IDA = r"d:\IDA_6.6\idaq.exe"
 AUTODIFF = r"t:\projects\Cisco\Code\AutoDiff\AutoDiff\AutoDiff\AutoDiff.py"
 
 #DEBUG ONLY

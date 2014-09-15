@@ -49,5 +49,13 @@
     <Folder Include="Modules\Sanitizer\" />
     <Folder Include="Modules\SignificantFunctions\" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="README.txt">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="TODO.txt">
+      <SubType>Content</SubType>
+    </Content>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
 </Project>
