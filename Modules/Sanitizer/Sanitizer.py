@@ -99,9 +99,9 @@ class Sanitizer(object):
                 instr_count += self._countInstrInternal(block.startEA,block.endEA,block.id)
                 #for sucess BBs
                 for succ_block in block.succs():
-                    instr_count += self._countInstrInternal(block.startEA,block.endEA,block.id)
+                    instr_count += self._countInstrInternal(succ_block.startEA,succ_block.endEA,succ_block.id)
                 for pred_block in block.preds():
-                    instr_count += self._countInstrInternal(block.startEA,block.endEA,block.id)
+                    instr_count += self._countInstrInternal(pred_block.startEA,pred_block.endEA,pred_block.id)
               
             Logger.log("Function 0x%x : has %d instructions" % (funcRange.startEA,instr_count))
             #update database
